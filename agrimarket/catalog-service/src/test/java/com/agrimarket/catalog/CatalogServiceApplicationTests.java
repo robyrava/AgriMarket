@@ -3,7 +3,7 @@ package com.agrimarket.catalog;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.boot.test.mock.mockito.MockBean;
 
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:catalog_db;DB_CLOSE_DELAY=-1",
@@ -15,7 +15,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 })
 class CatalogServiceApplicationTests {
 
-    @MockitoBean
+    @MockBean
     private ConnectionFactory connectionFactory;
 
     @Test
