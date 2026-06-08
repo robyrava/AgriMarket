@@ -1,16 +1,22 @@
 package com.agrimarket.order.service;
 
 import com.agrimarket.order.dto.OrderCreateRequest;
+import com.agrimarket.order.dto.OrderCreatedEvent;
 import com.agrimarket.order.model.Order;
 import com.agrimarket.order.model.OrderItem;
+import com.agrimarket.order.model.OutboxEvent;
 import com.agrimarket.order.model.state.OrderStatus;
 import com.agrimarket.order.model.state.StateFactory;
 import com.agrimarket.order.repository.OrderRepository;
+import com.agrimarket.order.repository.OutboxEventRepository;
 import com.agrimarket.order.service.shipping.ShippingStrategy;
 import com.agrimarket.order.service.shipping.ShippingStrategyFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -20,7 +26,10 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ShippingStrategyFactory shippingStrategyFactory;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
+    @Transactional
     public Order createOrder(OrderCreateRequest request) {
         // Builder Pattern for OrderItem
         List<OrderItem> items = request.getItems().stream()
@@ -53,13 +62,39 @@ public class OrderService {
                 .currentState(StateFactory.getState(OrderStatus.PENDING))
                 .build();
 
-        return orderRepository.save(newOrder);
+        Order savedOrder = orderRepository.save(newOrder);
+
+        // Transactional Outbox Pattern
+        try {
+            OrderCreatedEvent eventPayload = OrderCreatedEvent.builder()
+                    .orderId(savedOrder.getId())
+                    .customerId(savedOrder.getCustomerId())
+                    .totale(savedOrder.getTotale())
+                    .build();
+
+            OutboxEvent outboxEvent = OutboxEvent.builder()
+                    .aggregateType("Order")
+                    .aggregateId(savedOrder.getId().toString())
+                    .type("OrderCreated")
+                    .payload(objectMapper.writeValueAsString(eventPayload))
+                    .createdAt(LocalDateTime.now())
+                    .processed(false)
+                    .build();
+
+            outboxEventRepository.save(outboxEvent);
+        } catch (Exception e) {
+            throw new RuntimeException("Error serializing order outbox event", e);
+        }
+
+        return savedOrder;
     }
     
+    @Transactional(readOnly = true)
     public Order getOrder(Long id) {
         return orderRepository.findById(id).orElseThrow(() -> new RuntimeException("Order not found"));
     }
     
+    @Transactional
     public Order updateOrderState(Long id, String action) {
         Order order = getOrder(id);
         if ("next".equalsIgnoreCase(action)) {
