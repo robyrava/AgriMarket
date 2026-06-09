@@ -66,10 +66,18 @@ public class OrderService {
 
         // Transactional Outbox Pattern
         try {
+            List<OrderCreatedEvent.OrderItemInfo> itemInfos = savedOrder.getItems().stream()
+                    .map(item -> OrderCreatedEvent.OrderItemInfo.builder()
+                            .productId(item.getProductId())
+                            .quantita(item.getQuantita())
+                            .build())
+                    .collect(Collectors.toList());
+
             OrderCreatedEvent eventPayload = OrderCreatedEvent.builder()
                     .orderId(savedOrder.getId())
                     .customerId(savedOrder.getCustomerId())
                     .totale(savedOrder.getTotale())
+                    .items(itemInfos)
                     .build();
 
             OutboxEvent outboxEvent = OutboxEvent.builder()

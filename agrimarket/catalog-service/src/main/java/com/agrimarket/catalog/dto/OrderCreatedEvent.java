@@ -1,4 +1,4 @@
-package com.agrimarket.order.dto;
+package com.agrimarket.catalog.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -11,12 +11,7 @@ public class PendingState implements OrderState {
 
     @Override
     public void cancel(Order order) {
-        // Specific rule: cannot cancel from PENDING unless it's an empty order
-        if (order.getItems() == null || order.getItems().isEmpty()) {
-            order.setState(new CancelledState());
-        } else {
-            throw new IllegalStateException("Impossibile annullare un ordine in stato PENDING con articoli presenti. Procedere prima alla reservation.");
-        }
+        order.setState(new CancelledState());
     }
 
     @Override

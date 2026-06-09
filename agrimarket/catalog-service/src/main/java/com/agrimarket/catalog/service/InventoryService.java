@@ -37,4 +37,18 @@ public class InventoryService {
         Inventory savedInventory = inventoryRepository.save(inventory);
         return inventoryMapper.toDTO(savedInventory);
     }
+    @Transactional
+    public void reserveInventory(java.util.List<com.agrimarket.catalog.dto.OrderCreatedEvent.OrderItemInfo> items) {
+        for (com.agrimarket.catalog.dto.OrderCreatedEvent.OrderItemInfo item : items) {
+            Inventory inventory = inventoryRepository.findByProductId(item.getProductId())
+                    .orElseThrow(() -> new RuntimeException("Product " + item.getProductId() + " not found in inventory"));
+            
+            if (inventory.getQuantitaDisponibile() < item.getQuantita()) {
+                throw new RuntimeException("Not enough inventory for product " + item.getProductId());
+            }
+            
+            inventory.setQuantitaDisponibile(inventory.getQuantitaDisponibile() - item.getQuantita());
+            inventoryRepository.save(inventory);
+        }
+    }
 }
