@@ -1,19 +1,24 @@
 server:
   port: 8083
+
 spring:
   application:
     name: notification-service
-  datasource:
-    url: jdbc:postgresql://localhost:5432/notification_db
-    username: agrimarket
-    password: secret
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
   rabbitmq:
     host: localhost
     port: 5672
-    username: agrimarket
-    password: secret
+    username: user
+    password: password
+    listener:
+      simple:
+        default-requeue-rejected: false
+
+rabbitmq:
+  exchange:
+    order: order.exchange
+  queue:
+    notification: notification.queue
+    dlq: notification.dlq
+  routing-key:
+    order-confirmed: order.confirmed
+    order-cancelled: order.cancelled
