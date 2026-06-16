@@ -17,7 +17,7 @@ rabbitmq:
   exchange:
     order: order.exchange
   queue:
-    notification: notification.queue
+    notification: notification.queue.v2
     dlq: notification.dlq
   routing-key:
     order-confirmed: order.confirmed

@@ -25,4 +25,8 @@ public class RabbitMQConfig {
     public Binding binding(Queue orderQueue, TopicExchange orderExchange) {
         return BindingBuilder.bind(orderQueue).to(orderExchange).with(ROUTING_KEY);
     }
+    @Bean
+    public org.springframework.amqp.support.converter.MessageConverter messageConverter() {
+        return new org.springframework.amqp.support.converter.Jackson2JsonMessageConverter();
+    }
 }

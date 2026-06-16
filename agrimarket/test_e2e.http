@@ -1,0 +1,98 @@
+### 1. Crea la Mela
+# @name createApple
+POST http://localhost/api/v1/catalog/products
+Content-Type: application/json
+
+{
+  "nome": "Mela",
+  "descrizione": "Mela rossa",
+  "prezzo": 1.50
+}
+
+###
+
+### 2. Imposta l'Inventario per la Mela a 10 unità (sostituisci l'id del prodotto con quello generato nello step 1, es. 1)
+POST http://localhost/api/v1/catalog/inventory
+Content-Type: application/json
+
+{
+  "productId": {{createApple.response.body.id}},
+  "quantitaDisponibile": 10
+}
+
+###
+
+### 3. Crea la Pera
+# @name createPear
+POST http://localhost/api/v1/catalog/products
+Content-Type: application/json
+
+{
+  "nome": "Pera",
+  "descrizione": "Pera verde",
+  "prezzo": 2.00
+}
+
+###
+
+### 4. Imposta l'Inventario per la Pera a 2 unità
+POST http://localhost/api/v1/catalog/inventory
+Content-Type: application/json
+
+{
+  "productId": {{createPear.response.body.id}},
+  "quantitaDisponibile": 2
+}
+
+###
+
+### 5. Crea un Ordine VALIDO (3 Mele)
+# @name validOrder
+POST http://localhost/api/v1/orders
+Content-Type: application/json
+
+{
+  "customerId": 100,
+  "tipoSpedizione": "STANDARD",
+  "items": [
+    {
+      "productId": {{createApple.response.body.id}},
+      "quantita": 3,
+      "prezzo": 1.50
+    }
+  ]
+}
+
+###
+
+### 6. Controlla lo Stato dell'Ordine Valido (dovrebbe essere diventato CONFIRMED)
+GET http://localhost/api/v1/orders/{{validOrder.response.body.id}}
+
+###
+
+### 7. Controlla l'Inventario Residuo della Mela (dovrebbe essere scalato a 7)
+GET http://localhost/api/v1/catalog/inventory/product/{{createApple.response.body.id}}
+
+###
+
+### 8. Crea un Ordine INVALIDO (5 Pere, ma ce ne sono solo 2)
+# @name invalidOrder
+POST http://localhost/api/v1/orders
+Content-Type: application/json
+
+{
+  "customerId": 101,
+  "tipoSpedizione": "REFRIGERATED",
+  "items": [
+    {
+      "productId": {{createPear.response.body.id}},
+      "quantita": 500,
+      "prezzo": 2.00
+    }
+  ]
+}
+
+###
+
+### 9. Controlla lo Stato dell'Ordine Invalido (dovrebbe essere stato compensato a CANCELLED)
+GET http://localhost/api/v1/orders/{{invalidOrder.response.body.id}}

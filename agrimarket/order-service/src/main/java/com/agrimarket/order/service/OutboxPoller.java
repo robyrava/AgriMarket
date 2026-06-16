@@ -8,8 +8,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageProperties;
+import java.nio.charset.StandardCharsets;
 
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Component
 @RequiredArgsConstructor
@@ -18,6 +22,7 @@ public class OutboxPoller {
 
     private final OutboxEventRepository outboxEventRepository;
     private final RabbitTemplate rabbitTemplate;
+    private final ObjectMapper objectMapper;
 
     @Scheduled(fixedDelayString = "${outbox.poller.delay:5000}")
     public void processOutboxEvents() {
@@ -25,7 +30,10 @@ public class OutboxPoller {
         for (OutboxEvent event : events) {
             try {
                 log.info("Processing outbox event id: {}", event.getId());
-                rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.ROUTING_KEY, event.getPayload());
+                MessageProperties props = new MessageProperties();
+                props.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+                Message message = new Message(event.getPayload().getBytes(StandardCharsets.UTF_8), props);
+                rabbitTemplate.send(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.ROUTING_KEY, message);
                 event.setProcessed(true);
                 outboxEventRepository.save(event);
             } catch (Exception e) {
