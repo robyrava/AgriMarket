@@ -65,7 +65,7 @@ class OrderServiceOutboxIntegrationTest {
         List<OutboxEvent> outboxEvents = outboxEventRepository.findAll();
         assertEquals(1, outboxEvents.size());
         OutboxEvent event = outboxEvents.get(0);
-        assertEquals("OrderCreated", event.getType());
+        assertEquals("OrderConfirmed", event.getType());
         assertEquals(savedOrder.getId().toString(), event.getAggregateId());
         assertFalse(event.isProcessed());
 
@@ -73,7 +73,7 @@ class OrderServiceOutboxIntegrationTest {
         outboxPoller.processOutboxEvents();
 
         // 4. Verify message is published at least once
-        verify(rabbitTemplate, org.mockito.Mockito.atLeast(1)).convertAndSend(eq(RabbitMQConfig.EXCHANGE_NAME), eq(RabbitMQConfig.ROUTING_KEY), anyString());
+        verify(rabbitTemplate, org.mockito.Mockito.atLeast(1)).send(eq(RabbitMQConfig.EXCHANGE_NAME), eq(RabbitMQConfig.ROUTING_KEY_CONFIRMED), org.mockito.ArgumentMatchers.any(org.springframework.amqp.core.Message.class));
 
         // 5. Verify OutboxEvent is updated
         OutboxEvent processedEvent = outboxEventRepository.findById(event.getId()).get();

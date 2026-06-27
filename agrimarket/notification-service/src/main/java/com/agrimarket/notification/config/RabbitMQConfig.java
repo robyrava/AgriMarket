@@ -29,8 +29,8 @@ public class RabbitMQConfig {
     private String orderCancelledRoutingKey;
 
     @Bean
-    public DirectExchange orderExchange() {
-        return new DirectExchange(orderExchangeName);
+    public TopicExchange orderExchange() {
+        return new TopicExchange(orderExchangeName);
     }
 
     @Bean
@@ -39,8 +39,8 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public DirectExchange dlx() {
-        return new DirectExchange(dlqName + ".exchange");
+    public TopicExchange dlx() {
+        return new TopicExchange(dlqName + ".exchange");
     }
 
     @Bean
@@ -57,12 +57,12 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Binding confirmedBinding(Queue notificationQueue, DirectExchange orderExchange) {
+    public Binding confirmedBinding(Queue notificationQueue, TopicExchange orderExchange) {
         return BindingBuilder.bind(notificationQueue).to(orderExchange).with(orderConfirmedRoutingKey);
     }
 
     @Bean
-    public Binding cancelledBinding(Queue notificationQueue, DirectExchange orderExchange) {
+    public Binding cancelledBinding(Queue notificationQueue, TopicExchange orderExchange) {
         return BindingBuilder.bind(notificationQueue).to(orderExchange).with(orderCancelledRoutingKey);
     }
 

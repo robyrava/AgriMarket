@@ -33,7 +33,7 @@ public class OutboxPoller {
                 MessageProperties props = new MessageProperties();
                 props.setContentType(MessageProperties.CONTENT_TYPE_JSON);
                 Message message = new Message(event.getPayload().getBytes(StandardCharsets.UTF_8), props);
-                rabbitTemplate.send(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.ROUTING_KEY, message);
+                rabbitTemplate.send(RabbitMQConfig.EXCHANGE_NAME, event.getRoutingKey(), message);
                 event.setProcessed(true);
                 outboxEventRepository.save(event);
             } catch (Exception e) {

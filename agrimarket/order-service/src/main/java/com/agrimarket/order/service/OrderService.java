@@ -1,5 +1,8 @@
 package com.agrimarket.order.service;
 
+import com.agrimarket.order.config.RabbitMQConfig;
+import com.agrimarket.order.dto.OrderCancelledEvent;
+import com.agrimarket.order.dto.OrderConfirmedEvent;
 import com.agrimarket.order.dto.OrderCreateRequest;
 import com.agrimarket.order.dto.OrderCreatedEvent;
 import com.agrimarket.order.model.Order;
@@ -13,6 +16,7 @@ import com.agrimarket.order.service.shipping.ShippingStrategy;
 import com.agrimarket.order.service.shipping.ShippingStrategyFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +26,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrderService {
 
     private final OrderRepository orderRepository;
@@ -31,7 +36,6 @@ public class OrderService {
 
     @Transactional
     public Order createOrder(OrderCreateRequest request) {
-        // Builder Pattern for OrderItem
         List<OrderItem> items = request.getItems().stream()
                 .map(itemReq -> OrderItem.builder()
                         .productId(itemReq.getProductId())
@@ -42,16 +46,13 @@ public class OrderService {
 
         double totalItems = items.stream().mapToDouble(i -> i.getPrezzo() * i.getQuantita()).sum();
 
-        // Strategy Pattern for Shipping Calculation
         ShippingStrategy shippingStrategy = shippingStrategyFactory.getStrategy(request.getTipoSpedizione().toUpperCase());
 
-        // We create a temporary order to calculate shipping if shipping strategy requires it
         Order tempOrder = Order.builder()
                 .items(items)
                 .build();
         double shippingCost = shippingStrategy.calculateCost(tempOrder);
 
-        // Builder Pattern for Order
         Order newOrder = Order.builder()
                 .customerId(request.getCustomerId())
                 .items(items)
@@ -64,34 +65,25 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(newOrder);
 
-        // Transactional Outbox Pattern
+        savedOrder.nextState();
+        orderRepository.save(savedOrder);
+
         try {
-            List<OrderCreatedEvent.OrderItemInfo> itemInfos = savedOrder.getItems().stream()
-                    .map(item -> OrderCreatedEvent.OrderItemInfo.builder()
-                            .productId(item.getProductId())
-                            .quantita(item.getQuantita())
-                            .build())
-                    .collect(Collectors.toList());
-
-            OrderCreatedEvent eventPayload = OrderCreatedEvent.builder()
-                    .orderId(savedOrder.getId())
-                    .customerId(savedOrder.getCustomerId())
-                    .totale(savedOrder.getTotale())
-                    .items(itemInfos)
-                    .build();
-
+            OrderConfirmedEvent confirmedEvent = new OrderConfirmedEvent(savedOrder.getId());
             OutboxEvent outboxEvent = OutboxEvent.builder()
                     .aggregateType("Order")
                     .aggregateId(savedOrder.getId().toString())
-                    .type("OrderCreated")
-                    .payload(objectMapper.writeValueAsString(eventPayload))
+                    .type("OrderConfirmed")
+                    .routingKey(RabbitMQConfig.ROUTING_KEY_CONFIRMED)
+                    .payload(objectMapper.writeValueAsString(confirmedEvent))
                     .createdAt(LocalDateTime.now())
                     .processed(false)
                     .build();
 
             outboxEventRepository.save(outboxEvent);
+            log.info("Order {} created and confirmed, outbox event saved", savedOrder.getId());
         } catch (Exception e) {
-            throw new RuntimeException("Error serializing order outbox event", e);
+            throw new RuntimeException("Error serializing order confirmed event", e);
         }
 
         return savedOrder;
@@ -105,11 +97,35 @@ public class OrderService {
     @Transactional
     public Order updateOrderState(Long id, String action) {
         Order order = getOrder(id);
+        String previousStatus = order.getStato().name();
+
         if ("next".equalsIgnoreCase(action)) {
             order.nextState();
         } else if ("cancel".equalsIgnoreCase(action)) {
             order.cancel();
         }
-        return orderRepository.save(order);
+
+        order = orderRepository.save(order);
+
+        if (order.getStato() == OrderStatus.CANCELLED && !"CANCELLED".equals(previousStatus)) {
+            try {
+                OrderCancelledEvent cancelledEvent = new OrderCancelledEvent(order.getId(), "Cancelled by request");
+                OutboxEvent outboxEvent = OutboxEvent.builder()
+                        .aggregateType("Order")
+                        .aggregateId(order.getId().toString())
+                        .type("OrderCancelled")
+                        .routingKey(RabbitMQConfig.ROUTING_KEY_CANCELLED)
+                        .payload(objectMapper.writeValueAsString(cancelledEvent))
+                        .createdAt(LocalDateTime.now())
+                        .processed(false)
+                        .build();
+                outboxEventRepository.save(outboxEvent);
+                log.info("Order {} cancelled, outbox event saved", order.getId());
+            } catch (Exception e) {
+                log.error("Error serializing order cancelled event", e);
+            }
+        }
+
+        return order;
     }
 }

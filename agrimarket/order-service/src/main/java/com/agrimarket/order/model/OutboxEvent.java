@@ -27,6 +27,9 @@ public class OutboxEvent {
 
     private String type;
 
+    @Column(name = "routing_key")
+    private String routingKey;
+
     @Column(columnDefinition = "TEXT")
     private String payload;
 

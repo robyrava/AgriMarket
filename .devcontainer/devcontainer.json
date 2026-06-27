@@ -18,5 +18,6 @@
 		}
 	},
 	"forwardPorts": [5432, 5672, 15672, 8080, 8081, 8082],
-	"remoteUser": "vscode"
+	"remoteUser": "vscode",
+	"postStartCommand": "DOCKER_GID=$$(stat -c '%g' /var/run/docker.sock 2>/dev/null); if [ -n \"$$DOCKER_GID\" ] && ! getent group \"$$DOCKER_GID\" >/dev/null 2>&1; then sudo groupadd -g \"$$DOCKER_GID\" docker-host && sudo usermod -aG \"$$DOCKER_GID\" vscode; fi; if command -v docker-mcp >/dev/null 2>&1; then docker mcp gateway start --port 8811 2>/dev/null || true; fi"
 }
